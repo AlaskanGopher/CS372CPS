@@ -9,6 +9,40 @@
 using std::numbers::pi;
 #include <numeric>
 
+double CompoundShape::getHeight() const {
+   double height = 0;
+   for (auto shape : getShapes()) {
+      combinedHeight(height, shape);
+   }
+   return height;
+}
+
+double CompoundShape::getWidth() const {
+   double width = 0;
+   for (auto shape : getShapes()) {
+      combinedWidth(width, shape);
+   }
+   return width;
+}
+
+std::string CompoundShape::getPostScript() const {
+   std::string ps = "gsave\n";
+   for (auto i = 0l; i < getShapes().size(); ++i) {
+      ps += moveToPositionForShape(i);
+      ps += generatePostScript(i);
+   }
+   ps += "grestore\n";
+   return ps;
+}
+
+std::string CompoundShape::generatePostScript(const long i) const {
+   return getShapes()[i]->getPostScript();
+}
+
+std::vector<ShapePtr> CompoundShape::getShapes() const {
+   return _shapes;
+}
+
 Circle::Circle(double radius) : _radius(radius) {
 }
 
@@ -159,90 +193,55 @@ std::string RotatedShape::getPostScript() const {
 LayeredShape::LayeredShape(std::initializer_list<ShapePtr> shapes) : _shapes(shapes) {
 }
 
-double LayeredShape::getHeight() const {
-   double maxHeight = 0.0;
-   for (const auto &shape : _shapes)
-      maxHeight = std::max(maxHeight, shape->getHeight());
-   return maxHeight;
-   // in C++20 we can return std::ranges::max_element(_shapes,{},Shape::getHeight());
+std::string LayeredShape::moveToPositionForShape(const long &i) const {
+   return "0 0 rmoveto\n";
 }
 
-double LayeredShape::getWidth() const {
-   double maxWidth = 0.0;
-   for (const auto &shape : _shapes)
-      maxWidth = std::max(maxWidth, shape->getHeight());
-   return maxWidth;
+double LayeredShape::combinedHeight(double height, ShapePtr shape) const {
+   return std::max(height, shape->getHeight());
 }
 
-std::string LayeredShape::getPostScript() const {
-   //   std::string output{};
-   //   for (const auto &shape : _shapes)
-   //      output += shape->getPostScript();
-   //   return output;
-   return std::accumulate(_shapes.begin(), _shapes.end(), std::string{},
-                          [](auto output, auto sPtr) { return output + sPtr->getPostScript(); });
+double LayeredShape::combinedWidth(double width, ShapePtr shape) const {
+   return std::max(width, shape->getHeight());
 }
 
 VerticalShape::VerticalShape(std::initializer_list<ShapePtr> shapes) : _shapes(shapes) {
 }
 
-double VerticalShape::getHeight() const {
-   double sumOfHeights = 0.0;
-   for (const auto &shape : _shapes)
-      sumOfHeights += shape->getHeight();
-   return sumOfHeights;
-   // in C++20 we couldazszza return std::ranges::accumulate(_shapes,0,Shape::getHeight());
-}
-
-double VerticalShape::getWidth() const {
-   double maxWidth = 0.0;
-   for (const auto &shape : _shapes)
-      maxWidth = std::max(maxWidth, shape->getHeight());
-   return maxWidth;
-}
-
-std::string VerticalShape::getPostScript() const {
-   std::string output{"gsave\n"};
-   output += "0 " + std::to_string(-getHeight() / 2) + " rmoveto\n";
-   for (const auto &shape : _shapes) {
-      output += "0 " + std::to_string(shape->getHeight() / 2) + " rmoveto\n";
-      output += shape->getPostScript();
-      output += "0 " + std::to_string(shape->getHeight() / 2) + " rmoveto\n";
+std::string VerticalShape::moveToPositionForShape(const long &i) const {
+   if (i == 0l) {
+      return "0 " + std::to_string((getShapes()[i]->getHeight() / 2) - (getHeight() / 2)) + " rmoveto\n";
    }
-   output += "grestore\n";
-
-   return output;
+   return "0 " + std::to_string((getShapes()[i]->getHeight() / 2) + (getShapes()[i-1]->getHeight()) / 2) + " rmoveto\n";
 }
+
+double VerticalShape::combinedHeight(double height, ShapePtr shape) const {
+   return shape->getHeight();
+}
+
+double VerticalShape::combinedWidth(double width, ShapePtr shape) const {
+   return std::max(width, shape->getHeight());
+}
+
 
 HorizontalShape::HorizontalShape(std::initializer_list<ShapePtr> shapes) : _shapes(shapes) {
 }
 
-double HorizontalShape::getHeight() const {
-   double maxHeight = 0.0;
-   for (const auto &shape : _shapes)
-      maxHeight = std::max(maxHeight, shape->getHeight());
-   return maxHeight;
-   // in C++20 we can return std::ranges::max_element(_shapes,{},Shape::getHeight());
-}
-
-double HorizontalShape::getWidth() const {
-   double sumOfWidths = 0.0;
-   for (const auto &shape : _shapes)
-      sumOfWidths += shape->getWidth();
-   return sumOfWidths;
-}
-
-std::string HorizontalShape::getPostScript() const {
-   std::string output{"gsave\n"};
-   output += std::to_string(-getWidth() / 2) + " 0 rmoveto\n";
-   for (const auto &shape : _shapes) {
-      output += std::to_string(shape->getWidth() / 2) + " 0 rmoveto\n";
-      output += shape->getPostScript();
-      output += std::to_string(shape->getWidth() / 2) + " 0 rmoveto\n";
+std::string HorizontalShape::moveToPositionForShape(const long &i) const {
+   if (i == 0l) {
+      return std::to_string((getShapes()[i]->getWidth() / 2) - (getWidth() / 2)) + " 0 rmoveto\n";
    }
-   output += "grestore\n";
-   return output;
+   return std::to_string((getShapes()[i]->getWidth() / 2) + (getShapes()[i - 1]->getWidth() / 2)) + " 0 rmoveto\n";
 }
+
+double HorizontalShape::combinedHeight(double height, ShapePtr shape) const {
+   return std::max(height, shape->getHeight());
+}
+
+double HorizontalShape::combinedWidth(double width, ShapePtr shape) const {
+   return shape->getHeight();
+}
+
 
 ShapePtr makeCircle(double radius) {
    return std::make_shared<Circle>(radius);
